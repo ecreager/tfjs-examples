@@ -21,20 +21,16 @@ const statusElement = document.getElementById('status');
 const messageElement = document.getElementById('message');
 const imagesElement = document.getElementById('images');
 
-export function isTraining(trainMlp) {
-  if (trainMlp) {
-    statusElement.innerText = 'Training MLP...';
-  } else {
-    statusElement.innerText = 'Training ConvNet...';
-  }
+export function isTraining(mode) {
+  statusElement.innerText = 'Training ' + mode + '...';
 }
 export function trainingLog(message) {
   messageElement.innerText = `${message}\n`;
   console.log(message);
 }
 
-export function showTestResults(batch, predictions, labels) {
-  statusElement.innerText = 'Testing...';
+export function showTestResults(batch, predictions, labels, mode) {
+  statusElement.innerText = 'Testing ' + mode + '...';
 
   const testExamples = batch.xs.shape[0];
   let totalCorrect = 0;

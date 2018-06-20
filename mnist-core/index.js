@@ -18,11 +18,24 @@
 import {MnistData} from './data';
 import * as model from './model';
 import * as mlpModel from './mlp-model';
+import * as bnnMlpModel from './bnn-mlp-model';
 import * as ui from './ui';
 
 
-const trainMlp = true;  // else convnet
-const exportedModel = trainMlp ? mlpModel : model
+// mode: choose from {conv, mlp, bnn-mlp}
+const mode = 'bnn-mlp';
+function getExportedModel(mode) {
+  if (mode == 'conv') {
+    return model;
+  } else if (mode == 'mlp') {
+    return mlpModel; 
+  } else if (mode == 'bnn-mlp') {
+    return bnnMlpModel; 
+  } else {
+    throw 'Invalid mode; choose from {conv, mlp, bnn-mlp}'; 
+  }
+}
+const exportedModel = getExportedModel(mode);
 export default exportedModel
 
 let data;
@@ -32,7 +45,7 @@ async function load() {
 }
 
 async function train() {
-  ui.isTraining(trainMlp);
+  ui.isTraining(mode);
   await exportedModel.train(data, ui.trainingLog);
 }
 
@@ -42,7 +55,7 @@ async function test() {
   const predictions = exportedModel.predict(batch.xs);
   const labels = exportedModel.classesFromLabel(batch.labels);
 
-  ui.showTestResults(batch, predictions, labels);
+  ui.showTestResults(batch, predictions, labels, mode);
 }
 
 async function mnist() {
