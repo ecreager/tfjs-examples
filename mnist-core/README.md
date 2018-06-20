@@ -1,3 +1,16 @@
+# Elliot's notes
+## setup
+```
+brew install yarn
+```
+
+## run
+```
+yarn
+yarn watch
+```
+
+
 # TensorFlow.js Example: MNIST using tfjs-core
 
 This example shows you how to train MNIST only using the [TensorFlow.js core]

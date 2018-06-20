@@ -21,8 +21,12 @@ const statusElement = document.getElementById('status');
 const messageElement = document.getElementById('message');
 const imagesElement = document.getElementById('images');
 
-export function isTraining() {
-  statusElement.innerText = 'Training...';
+export function isTraining(trainMlp) {
+  if (trainMlp) {
+    statusElement.innerText = 'Training MLP...';
+  } else {
+    statusElement.innerText = 'Training ConvNet...';
+  }
 }
 export function trainingLog(message) {
   messageElement.innerText = `${message}\n`;

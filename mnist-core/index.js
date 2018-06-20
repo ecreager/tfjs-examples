@@ -17,7 +17,13 @@
 
 import {MnistData} from './data';
 import * as model from './model';
+import * as mlpModel from './mlp-model';
 import * as ui from './ui';
+
+
+const trainMlp = true;  // else convnet
+const exportedModel = trainMlp ? mlpModel : model
+export default exportedModel
 
 let data;
 async function load() {
@@ -26,15 +32,15 @@ async function load() {
 }
 
 async function train() {
-  ui.isTraining();
-  await model.train(data, ui.trainingLog);
+  ui.isTraining(trainMlp);
+  await exportedModel.train(data, ui.trainingLog);
 }
 
 async function test() {
   const testExamples = 50;
   const batch = data.nextTestBatch(testExamples);
-  const predictions = model.predict(batch.xs);
-  const labels = model.classesFromLabel(batch.labels);
+  const predictions = exportedModel.predict(batch.xs);
+  const labels = exportedModel.classesFromLabel(batch.labels);
 
   ui.showTestResults(batch, predictions, labels);
 }
