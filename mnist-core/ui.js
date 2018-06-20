@@ -29,9 +29,10 @@ export function trainingLog(message) {
   console.log(message);
 }
 
-export function showTestResults(batch, predictions, labels, mode) {
+export function showTestResults(batch, listOfPreds, labels, mode) {
   statusElement.innerText = 'Testing ' + mode + '...';
 
+  const numPreds = listOfPreds.length;
   const testExamples = batch.xs.shape[0];
   let totalCorrect = 0;
   for (let i = 0; i < testExamples; i++) {
@@ -45,15 +46,22 @@ export function showTestResults(batch, predictions, labels, mode) {
 
     const pred = document.createElement('div');
 
-    const prediction = predictions[i];
+    const preds = [];
+    for (let j = 0; j < numPreds; j++) {
+      preds.push(listOfPreds[j][i]);
+    }
+    const prediction = preds[0];
+    //const prediction = predictions[i];
     const label = labels[i];
     const correct = prediction === label;
+    // TODO: compute fraction of correct predictions per input-output pair
     if (correct) {
       totalCorrect++;
     }
-
+    
+    // TODO: use frac of correct preds to label this as 'pred-correct', 'pred-incorrect', or 'pred-partially-correct'
     pred.className = `pred ${(correct ? 'pred-correct' : 'pred-incorrect')}`;
-    pred.innerText = `pred: ${prediction}`;
+    pred.innerText = `p: ${preds.toString()}`;
 
     div.appendChild(pred);
     div.appendChild(canvas);

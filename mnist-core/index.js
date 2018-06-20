@@ -51,11 +51,22 @@ async function train() {
 
 async function test() {
   const testExamples = 50;
+  const numPreds = 4;
+  const listOfPreds = [];
   const batch = data.nextTestBatch(testExamples);
-  const predictions = exportedModel.predict(batch.xs);
+  for (var i = 0; i < numPreds; i++) {
+    var predictions = exportedModel.predict(batch.xs);
+    listOfPreds.push(predictions);
+  } 
+  //const predictions = exportedModel.predict(batch.xs);
+  for (let j = 0; j < numPreds; j++) {
+    console.log('pred', j, listOfPreds.toString());
+  }
+
   const labels = exportedModel.classesFromLabel(batch.labels);
 
-  ui.showTestResults(batch, predictions, labels, mode);
+  ui.showTestResults(batch, listOfPreds, labels, mode);
+  //ui.showTestResults(batch, predictions, labels, mode);
 }
 
 async function mnist() {
