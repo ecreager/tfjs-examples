@@ -18,11 +18,12 @@
 import * as tf from '@tensorflow/tfjs';
 
 import {MnistData} from './data';
+import {NUM_TRAIN_ELEMENTS} from './data';
 
 // Hyperparameters.
 const LEARNING_RATE = .1;
 const BATCH_SIZE = 64;
-const TRAIN_STEPS = 1000;
+const TRAIN_STEPS = 50;
 
 // Data constants.
 const IMAGE_SIZE = 28;
@@ -31,24 +32,24 @@ const optimizer = tf.train.sgd(LEARNING_RATE);
 
 // Variables that we want to optimize
 const eps = tf.scalar(1e-9);
-const minLogSigma = -1.0;
-const maxLogSigma = -0.5;
+const minLogSigma = 1.0;
+const maxLogSigma = 2.0;
 
-const layer1WeightsMu = tf.variable(tf.randomNormal([Math.pow(IMAGE_SIZE, 2), 400], 0, 0.1));
+const layer1WeightsMu = tf.variable(tf.randomNormal([Math.pow(IMAGE_SIZE, 2), 400]));
 const layer1WeightsLogSigma = tf.variable(tf.randomUniform(layer1WeightsMu.shape, minLogSigma, maxLogSigma));
 const layer1WeightsEpsilon = tf.randomNormal(layer1WeightsMu.shape);
 const layer1BiasMu = tf.variable(tf.zeros([400]));
 const layer1BiasLogSigma = tf.variable(tf.randomUniform(layer1BiasMu.shape, minLogSigma, maxLogSigma));
 const layer1BiasEpsilon = tf.randomNormal(layer1BiasMu.shape);
 
-const layer2WeightsMu = tf.variable(tf.randomNormal([400, 200], 0, 0.1));
+const layer2WeightsMu = tf.variable(tf.randomNormal([400, 200]));
 const layer2WeightsLogSigma = tf.variable(tf.randomUniform(layer2WeightsMu.shape, minLogSigma, maxLogSigma));
 const layer2WeightsEpsilon = tf.randomNormal(layer2WeightsMu.shape);
 const layer2BiasMu = tf.variable(tf.zeros([200]));
 const layer2BiasLogSigma = tf.variable(tf.randomUniform(layer2BiasMu.shape, minLogSigma, maxLogSigma));
 const layer2BiasEpsilon = tf.randomNormal(layer2BiasMu.shape);
 
-const layer3WeightsMu = tf.variable(tf.randomNormal([200, LABELS_SIZE], 0, 0.1));
+const layer3WeightsMu = tf.variable(tf.randomNormal([200, LABELS_SIZE]));
 const layer3WeightsLogSigma = tf.variable(tf.randomUniform(layer3WeightsMu.shape, minLogSigma, maxLogSigma));
 const layer3WeightsEpsilon = tf.randomNormal(layer3WeightsMu.shape);
 const layer3BiasMu = tf.variable(tf.zeros([LABELS_SIZE]));
@@ -57,11 +58,17 @@ const layer3BiasEpsilon = tf.randomNormal(layer3BiasMu.shape);
 
 // tensors derived (e.g., reparam trick) from variables
 function diagonalGaussianEntropy(logSigma) {
-  const s = logSigma.shape
+  const s = logSigma.shape;
   const k = tf.scalar(s[0]*s[1]);
   const sumLogSigmas = tf.sum(logSigma.flatten());
-  const doubleEntropy = k.mul(tf.scalar(1.0).add(tf.log(tf.scalar(2.0*Math.PI)))).add(sumLogSigmas);
-  return tf.scalar(0.5).mul(doubleEntropy);
+  console.log('dge', sumLogSigmas.mean().toString());
+  const log2pi = tf.log(tf.scalar(2.0).mul(tf.scalar(Math.PI)));
+  const constPart = tf.scalar(0.5).mul(k).mul(tf.scalar(1.0).add(log2pi));
+  return constPart.add(sumLogSigmas);
+}
+
+function logPrior(w) {
+  return tf.scalar(-1.0).mul(tf.sum(tf.pow(w, tf.scalar(2.0))));
 }
 
 const layer1WeightsSigma = tf.exp(layer1WeightsLogSigma.add(eps));
@@ -73,7 +80,7 @@ const layer1Bias = layer1BiasMu;
 const layer1Entropy = diagonalGaussianEntropy(layer1WeightsLogSigma)
 
 const layer2WeightsSigma = tf.exp(layer2WeightsLogSigma.add(eps));
-const layer2Weights = layer2WeightsMu;
+const layer2Weights = layer2WeightsMu.add(layer2WeightsSigma.mul(layer2WeightsEpsilon));
 const layer2BiasSigma = tf.exp(layer2BiasLogSigma.add(eps));
 //const layer2Bias = layer2BiasMu.add(layer2BiasSigma.mul(layer2BiasEpsilon));
 const layer2Bias = layer2BiasMu;
@@ -83,10 +90,10 @@ const layer2Entropy = diagonalGaussianEntropy(layer2WeightsLogSigma)
 const layer3WeightsSigma = tf.exp(layer3WeightsLogSigma.add(eps));
 const layer3Weights = layer3WeightsMu.add(layer3WeightsSigma.mul(layer3WeightsEpsilon));
 const layer3BiasSigma = tf.exp(layer3BiasLogSigma.add(eps));
-//const layer3Bias = layer3BiasMu.add(layer3BiasSigma.mul(layer3BiasEpsilon));
-const layer3Bias = layer3BiasMu;
-//const layer3Entropy = diagonalGaussianEntropy(layer3WeightsLogSigma).add(diagonalGaussianEntropy(layer3WeightsLogSigma));
-const layer3Entropy = diagonalGaussianEntropy(layer3WeightsLogSigma)
+const layer3Bias = layer3BiasMu.add(layer3BiasSigma.mul(layer3BiasEpsilon));
+//const layer3Bias = layer3BiasMu;
+const layer3Entropy = diagonalGaussianEntropy(layer3WeightsLogSigma).add(diagonalGaussianEntropy(layer3WeightsLogSigma));
+//const layer3Entropy = diagonalGaussianEntropy(layer3WeightsLogSigma)
 
 const qEntropy = layer1Entropy.add(layer2Entropy).add(layer3Entropy);
 
@@ -94,9 +101,25 @@ const qEntropy = layer1Entropy.add(layer2Entropy).add(layer3Entropy);
 function loss(labels, ys) {
   // TODO: evaluate ELBO with > 1 sample
   // TODO: Gaussian normal prior on mus and sigmas
-  const logpyIxw = tf.losses.softmaxCrossEntropy(labels, ys).mean().mul(tf.scalar(-1.0));
+  const NUM_DATASET_ELEMENTS = 65000;
+  const TRAIN_TEST_RATIO = 5 / 6;
+  const NUM_TRAIN_ELEMENTS = Math.floor(TRAIN_TEST_RATIO * NUM_DATASET_ELEMENTS);
+  const NOverM = tf.scalar(NUM_TRAIN_ELEMENTS/BATCH_SIZE);
+  const logpyIxw = NOverM.mul(tf.losses.softmaxCrossEntropy(labels, ys).sum().mul(tf.scalar(-1.0)));
+  //const logpyIxw = tf.losses.softmaxCrossEntropy(labels, ys).mean().mul(tf.scalar(-1.0));
+  const logpw = logPrior(layer1Weights).add(logPrior(layer2Weights)).add(logPrior(layer3Weights))
+  console.log('l1 avg w', layer1Weights.mean().toString());
+  console.log('l2 avg w', layer2Weights.mean().toString());
+  console.log('l3 avg w', layer3Weights.mean().toString());
+  // TODO: print variance of weights
+  console.log('l1 avg logsig', layer1WeightsLogSigma.mean().toString());
+  console.log('l2 avg logsig', layer2WeightsLogSigma.mean().toString());
+  console.log('l3 avg logsig', layer3WeightsLogSigma.mean().toString());
+  console.log('pw', logpw.toString());
+  console.log('pDIw', logpyIxw.toString());
+  console.log('Hq', qEntropy.toString());
   //const logqw = qEntropy.mul(tf.scalar(-1.0));
-  const elbo = logpyIxw.add(qEntropy);
+  const elbo = (logpyIxw.add(logpw).add(qEntropy)).div(NOverM);
   return elbo.mul(tf.scalar(-1.0))
 }
 
@@ -130,6 +153,7 @@ export async function train(data, log) {
 
     await tf.nextFrame();
   }
+
 }
 
 // Predict the digit number from a batch of input images.
