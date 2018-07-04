@@ -56,11 +56,12 @@ async function test() {
   const batch = data.nextTestBatch(testExamples);
   for (var i = 0; i < numPreds; i++) {
     var predictions = exportedModel.predict(batch.xs);
+    console.log('p', predictions.toString());
     listOfPreds.push(predictions);
   } 
   //const predictions = exportedModel.predict(batch.xs);
   for (let j = 0; j < numPreds; j++) {
-    console.log('pred', j, listOfPreds.toString());
+    console.log('pred', j, listOfPreds[j].toString());
   }
 
   const labels = exportedModel.classesFromLabel(batch.labels);
