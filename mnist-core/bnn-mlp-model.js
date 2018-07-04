@@ -23,7 +23,7 @@ import {NUM_TRAIN_ELEMENTS} from './data';
 // Hyperparameters.
 const LEARNING_RATE = .001;
 const BATCH_SIZE = 64;
-const TRAIN_STEPS = 50;
+const TRAIN_STEPS = 100;
 
 // Data constants.
 const IMAGE_SIZE = 28;
@@ -73,7 +73,7 @@ function logPrior(w) {
   return tf.scalar(-1.0).mul(tf.sum(tf.pow(w, tf.scalar(2.0))));
 }
 
-function reparamTrick(mu, logSigma) {
+function reparamTrick(mu, logSigma) {  //TODO: make epsilon an arg of this 
   return tf.tidy(() => {
     const epsilon = tf.randomNormal(mu.shape);
     //console.log('e', epsilon.toString());
@@ -84,23 +84,10 @@ function reparamTrick(mu, logSigma) {
   });
 }
 
-//const eps = tf.scalar(1e-9);  // TODO: remove
-//const layer1WeightsSigma = tf.exp(layer1WeightsLogSigma.add(eps));
-//const layer1Weights = layer1WeightsMu.add(layer1WeightsSigma.mul(layer1WeightsEpsilon));
-//const layer1BiasSigma = tf.exp(layer1BiasLogSigma.add(eps));
-//const layer1Bias = layer1BiasMu.add(layer1BiasSigma.mul(layer1BiasEpsilon));
 const layer1Entropy = diagonalGaussianEntropy(layer1WeightsLogSigma).add(diagonalGaussianEntropy(layer1WeightsLogSigma));
 
-//const layer2WeightsSigma = tf.exp(layer2WeightsLogSigma.add(eps));
-//const layer2Weights = layer2WeightsMu.add(layer2WeightsSigma.mul(layer2WeightsEpsilon));
-//const layer2BiasSigma = tf.exp(layer2BiasLogSigma.add(eps));
-//const layer2Bias = layer2BiasMu.add(layer2BiasSigma.mul(layer2BiasEpsilon));
 const layer2Entropy = diagonalGaussianEntropy(layer2WeightsLogSigma).add(diagonalGaussianEntropy(layer2WeightsLogSigma));
 
-//const layer3WeightsSigma = tf.exp(layer3WeightsLogSigma.add(eps));
-//const layer3Weights = layer3WeightsMu.add(layer3WeightsSigma.mul(layer3WeightsEpsilon));
-//const layer3BiasSigma = tf.exp(layer3BiasLogSigma.add(eps));
-//const layer3Bias = layer3BiasMu.add(layer3BiasSigma.mul(layer3BiasEpsilon));
 const layer3Entropy = diagonalGaussianEntropy(layer3WeightsLogSigma).add(diagonalGaussianEntropy(layer3WeightsLogSigma));
 
 const qEntropy = layer1Entropy.add(layer2Entropy).add(layer3Entropy);
@@ -108,32 +95,16 @@ const qEntropy = layer1Entropy.add(layer2Entropy).add(layer3Entropy);
 // Loss function
 function loss(labels, ys) {
   return tf.tidy(() => {
-    // TODO: evaluate ELBO with > 1 sample
-    // TODO: Gaussian normal prior on mus and sigmas
-    // const NUM_DATASET_ELEMENTS = 65000;
-    // const TRAIN_TEST_RATIO = 5 / 6;
-    // const NUM_TRAIN_ELEMENTS = Math.floor(TRAIN_TEST_RATIO * NUM_DATASET_ELEMENTS);
-    // const NOverM = tf.scalar(NUM_TRAIN_ELEMENTS/BATCH_SIZE);
-    // const logpyIxw = NOverM.mul(tf.losses.softmaxCrossEntropy(labels, ys).sum().mul(tf.scalar(-1.0)));
     const logpyIxw = tf.losses.softmaxCrossEntropy(labels, ys).mean().mul(tf.scalar(-1.0));
-    //const logpyIxw = tf.losses.softmaxCrossEntropy(labels, ys).mean().mul(tf.scalar(-1.0));
     //
     // strictly speaking this is weird b/c we use different epsilons to evaluate the predictions and weight decay penalty
     const layer1Weights = reparamTrick(layer1WeightsMu, layer1WeightsLogSigma);
     const layer2Weights = reparamTrick(layer2WeightsMu, layer2WeightsLogSigma);
     const layer3Weights = reparamTrick(layer3WeightsMu, layer3WeightsLogSigma);
     const logpw = lambda.mul((logPrior(layer1Weights).add(logPrior(layer2Weights)).add(logPrior(layer3Weights))));
-    // console.log('l1 avg w', layer1Weights.mean().toString());
-    // console.log('l2 avg w', layer2Weights.mean().toString());
-    // console.log('l3 avg w', layer3Weights.mean().toString());
-    // TODO: print variance of weights
-    // console.log('l1 avg logsig', layer1WeightsLogSigma.mean().toString());
-    // console.log('l2 avg logsig', layer2WeightsLogSigma.mean().toString());
-    // console.log('l3 avg logsig', layer3WeightsLogSigma.mean().toString());
     console.log('pw', logpw.toString());
     console.log('pDIw', logpyIxw.toString());
     console.log('Hq', qEntropy.toString());
-    //const logqw = qEntropy.mul(tf.scalar(-1.0));
     const elbo = (logpyIxw.add(logpw).add(qEntropy));
     return elbo.mul(tf.scalar(-1.0))
   });
