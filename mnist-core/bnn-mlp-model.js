@@ -38,24 +38,24 @@ const lambda = tf.scalar(0.00000005);
 // Variables that we want to optimize
 const layer1WeightsMu = tf.variable(tf.randomNormal([Math.pow(IMAGE_SIZE, 2), 400]));
 const layer1WeightsLogSigma = tf.variable(tf.randomUniform(layer1WeightsMu.shape, minLogSigma, maxLogSigma));
-const layer1WeightsEpsilon = tf.randomNormal(layer1WeightsMu.shape);
+//const layer1WeightsEpsilon = tf.randomNormal(layer1WeightsMu.shape);
 const layer1BiasMu = tf.variable(tf.zeros([400]));
 const layer1BiasLogSigma = tf.variable(tf.randomUniform(layer1BiasMu.shape, minLogSigma, maxLogSigma));
-const layer1BiasEpsilon = tf.randomNormal(layer1BiasMu.shape);
+//const layer1BiasEpsilon = tf.randomNormal(layer1BiasMu.shape);
 
 const layer2WeightsMu = tf.variable(tf.randomNormal([400, 200]));
 const layer2WeightsLogSigma = tf.variable(tf.randomUniform(layer2WeightsMu.shape, minLogSigma, maxLogSigma));
-const layer2WeightsEpsilon = tf.randomNormal(layer2WeightsMu.shape);
+//const layer2WeightsEpsilon = tf.randomNormal(layer2WeightsMu.shape);
 const layer2BiasMu = tf.variable(tf.zeros([200]));
 const layer2BiasLogSigma = tf.variable(tf.randomUniform(layer2BiasMu.shape, minLogSigma, maxLogSigma));
-const layer2BiasEpsilon = tf.randomNormal(layer2BiasMu.shape);
+//const layer2BiasEpsilon = tf.randomNormal(layer2BiasMu.shape);
 
 const layer3WeightsMu = tf.variable(tf.randomNormal([200, LABELS_SIZE]));
 const layer3WeightsLogSigma = tf.variable(tf.randomUniform(layer3WeightsMu.shape, minLogSigma, maxLogSigma));
-const layer3WeightsEpsilon = tf.randomNormal(layer3WeightsMu.shape);
+//const layer3WeightsEpsilon = tf.randomNormal(layer3WeightsMu.shape);
 const layer3BiasMu = tf.variable(tf.zeros([LABELS_SIZE]));
 const layer3BiasLogSigma = tf.variable(tf.randomUniform(layer3BiasMu.shape, minLogSigma, maxLogSigma));
-const layer3BiasEpsilon = tf.randomNormal(layer3BiasMu.shape);
+//const layer3BiasEpsilon = tf.randomNormal(layer3BiasMu.shape);
 
 // tensors derived (e.g., reparam trick) from variables
 function diagonalGaussianEntropy(logSigma) {
@@ -73,9 +73,9 @@ function logPrior(w) {
   return tf.scalar(-1.0).mul(tf.sum(tf.pow(w, tf.scalar(2.0))));
 }
 
-function reparamTrick(mu, logSigma, epsilon) {
+function reparamTrick(mu, logSigma) {
   return tf.tidy(() => {
-    //const epsilon = tf.randomNormal(mu.shape);
+    const epsilon = tf.randomNormal(mu.shape);
     //console.log('e', epsilon.toString());
     const sigma = tf.exp(logSigma.add(tf.scalar(1e-9)));
     const w = mu.add(sigma.mul(epsilon));
@@ -98,10 +98,9 @@ function loss(labels, ys) {
     const logpyIxw = tf.losses.softmaxCrossEntropy(labels, ys).mean().mul(tf.scalar(-1.0));
     //
     // strictly speaking this is weird b/c we use different epsilons to evaluate the predictions and weight decay penalty
-    const layer1Weights = reparamTrick(layer1WeightsMu, layer1WeightsLogSigma, layer1WeightsEpsilon);
-    console.log(12, layer1WeightsEpsilon.toString());
-    const layer2Weights = reparamTrick(layer2WeightsMu, layer2WeightsLogSigma, layer2WeightsEpsilon);
-    const layer3Weights = reparamTrick(layer3WeightsMu, layer3WeightsLogSigma, layer3WeightsEpsilon);
+    const layer1Weights = reparamTrick(layer1WeightsMu, layer1WeightsLogSigma);
+    const layer2Weights = reparamTrick(layer2WeightsMu, layer2WeightsLogSigma);
+    const layer3Weights = reparamTrick(layer3WeightsMu, layer3WeightsLogSigma);
     const logpw = lambda.mul((logPrior(layer1Weights).add(logPrior(layer2Weights)).add(logPrior(layer3Weights))));
     console.log('pw', logpw.toString());
     console.log('pDIw', logpyIxw.toString());
@@ -115,25 +114,24 @@ function loss(labels, ys) {
 function model(inputXs) {
   // layer 1
   const layer1 = tf.tidy(() => {
-    const layer1Weights = reparamTrick(layer1WeightsMu, layer1WeightsLogSigma, layer1WeightsEpsilon);
-    console.log(11, layer1WeightsEpsilon.toString());
-    const layer1Bias = reparamTrick(layer1BiasMu, layer1BiasLogSigma, layer1BiasEpsilon);
+    const layer1Weights = reparamTrick(layer1WeightsMu, layer1WeightsLogSigma);
+    const layer1Bias = reparamTrick(layer1BiasMu, layer1BiasLogSigma);
     console.log(1, layer1Weights.norm().toString(), layer1Bias.norm().toString());
     return inputXs.matMul(layer1Weights).add(layer1Bias).relu()
   });
 
   // layer 2
   const layer2 = tf.tidy(() => {
-    const layer2Weights = reparamTrick(layer2WeightsMu, layer2WeightsLogSigma, layer2WeightsEpsilon);
-    const layer2Bias = reparamTrick(layer2BiasMu, layer2BiasLogSigma, layer2BiasEpsilon);
+    const layer2Weights = reparamTrick(layer2WeightsMu, layer2WeightsLogSigma);
+    const layer2Bias = reparamTrick(layer2BiasMu, layer2BiasLogSigma);
     console.log(2, layer2Weights.norm().toString(), layer2Bias.norm().toString());
     return layer1.matMul(layer2Weights).add(layer2Bias).relu()
   });
 
   // layer 3
   const layer3 = tf.tidy(() => {
-    const layer3Weights = reparamTrick(layer3WeightsMu, layer3WeightsLogSigma, layer3WeightsEpsilon);
-    const layer3Bias = reparamTrick(layer3BiasMu, layer3BiasLogSigma, layer3BiasEpsilon);
+    const layer3Weights = reparamTrick(layer3WeightsMu, layer3WeightsLogSigma);
+    const layer3Bias = reparamTrick(layer3BiasMu, layer3BiasLogSigma);
     console.log(3, layer3Weights.norm().toString(), layer3Bias.norm().toString());
     return layer2.matMul(layer3Weights).add(layer3Bias).relu()
   });
